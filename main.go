@@ -2,18 +2,51 @@ package main
 
 import (
 	"autossh/core"
-	"path/filepath"
 	"os"
-	"fmt"
+	"os/user"
 )
 
+const template = `
+[
+  {
+    "name": "vagrant",
+    "ip": "192.168.33.10",
+    "port": 22,
+    "user": "root",
+    "password": "vagrant",
+    "method": "password"
+  },
+  {
+    "name": "ssh-pem",
+    "ip": "192.168.33.11",
+    "port": 22,
+    "user": "root",
+    "password": "your pem file password or empty",
+    "method": "pem",
+    "key": "your pem file path"
+  }
+]
+`
+
 func main() {
-	path, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	user, err := user.Current()
 	if err != nil {
-		fmt.Println("error:", err)
-		return
+		panic(err)
 	}
 
-	app := core.App{ServersPath: path + "/servers.json"}
+	userHome := user.HomeDir
+	rootPath := userHome + "/.autossh"
+	exist, err := core.PathExists(rootPath)
+	if err == nil && !exist {
+		err = os.Mkdir(rootPath, os.ModePerm)
+		if err == nil {
+			config, err := os.OpenFile(rootPath+"/servers.json", os.O_RDWR|os.O_CREATE, 0766)
+			if err == nil {
+				config.Write([]byte(template))
+			}
+		}
+	}
+
+	app := core.App{ServersPath: rootPath + "/servers.json"}
 	app.Exec()
 }

@@ -1,13 +1,15 @@
 package core
 
 import (
-	"os"
-	"net"
-	"strconv"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
 	"errors"
 	"io/ioutil"
+	"net"
+	"os"
+	"strconv"
+	"time"
+
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type Server struct {
@@ -50,6 +52,7 @@ func (server *Server) Connection() {
 		Printer.Errorln("创建Session出错:", err)
 		return
 	}
+	go keepAlive(session)
 
 	defer session.Close()
 
@@ -139,4 +142,15 @@ func pemKey(server *Server) (ssh.AuthMethod, error) {
 	}
 
 	return ssh.PublicKeys(signer), nil
+}
+
+func keepAlive(session *ssh.Session) {
+	ticker := time.NewTicker(30 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			// keepalive
+			session.SendRequest("keepalive@bbr", true, nil)
+		}
+	}
 }
